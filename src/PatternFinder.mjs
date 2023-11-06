@@ -1,156 +1,17 @@
+import { defaultChallenges } from './data/challenges.mjs'
+import { regexToString, stringToRegex } from './helpers/mixed.mjs'
+
+
 export class PatternFinder {
     #config
     #challenges
     #patterns
+    #debug
     
 
-    constructor() {
-        this.#config = {
-            'patterns': {
-                'active': true,
-                'splitter': '_',
-                'challenges': [
-                    {
-                        'name': 'ZerosGreaterThen3',
-                        'active': true,
-                        'logic': [
-                            {
-                                'method': 'inSuccession',
-                                'option': 'startsWith',
-                                'value': '0',
-                                'expect': {
-                                    'logic': '>',
-                                    'value': 3
-                                }
-                            }
-                        ]
-                    },
-                    {
-                        'name': 'ZeroFrontAndEnd',
-                        'active': true,
-                        'logic': [
-                            {
-                                'method': 'inSuccession',
-                                'option': 'startsWith',
-                                'value': '0',
-                                'expect': {
-                                    'logic': '>',
-                                    'value': 2
-                                }
-                            }
-                            ,{
-                                'method': 'inSuccession',
-                                'option': 'endsWith',
-                                'value': '0',
-                                'expect': {
-                                    'logic': '=',
-                                    'value': 2
-                                }
-                            }
-
-                        ]
-                    },
-                    {
-                        'name': 'ZeroFrontAndEnd4',
-                        'active': true,
-                        'logic': [
-                            {
-                                'method': 'inSuccession',
-                                'option': 'startsWith',
-                                'value': '0',
-                                'expect': {
-                                    'logic': '=',
-                                    'value': 4
-                                }
-                            }
-                            ,{
-                                'method': 'inSuccession',
-                                'option': 'endsWith',
-                                'value': '0',
-                                'expect': {
-                                    'logic': '=',
-                                    'value': 4
-                                }
-                            }
-
-                        ]
-                    },
-                    {
-                        'name': 'regularExpressionText',
-                        'active': true,
-                        'logic': [
-                            {
-                                'value': 'abcdef',
-                                'method': 'regularExpression',
-                                'expect': {
-                                    'logic': '=',
-                                    'value': true
-                                }
-                            },
-                            {
-                                'method': 'inSuccession',
-                                'option': 'startsWith',
-                                'value': '0',
-                                'expect': {
-                                    'logic': '=',
-                                    'value': 2
-                                }
-                            }
-                        ]
-                    }
-                ]
-                /*
-                ,'inSuccession': [
-                    {
-                        'option': 'startsWith',
-                        'keyName': '0',
-                        'value': '0',
-                        'expect': {
-                            'logic': '=',
-                            'value': 4
-                        },
-                        'active': true
-                    }
-                    ,{
-                        'option': 'endsWith',
-                        'keyName': '0',
-                        'value': '0',
-                        'expect': {
-                            'logic': '=',
-                            'value': 4
-                        },
-                        'active': true
-                    }
-                 
-                    ,{
-                        'option': 'between',
-                        'keyName': '0',
-                        'value': '0',
-                        'expect': {
-                            'logic': '=',
-                            'value': 4
-                        },
-                        'active': true
-                    }
-                    
-
-                ],
-                'regexs': [
-                    {
-                        'keyName': 'triple0',
-                        'value': /a6b888/,
-                        'expect': {
-                            'logic': '=',
-                            'value': true
-                        },
-                        'active': true
-                    }
-                ]
-                */
-            }
-        }
-
-    
+    constructor( debug=false ) {
+        this.#debug = debug
+        this.#config = {}
     }
 
 
@@ -166,107 +27,47 @@ export class PatternFinder {
     }
 
 
-    setChallenges( { challenges } ) {
-        const messages = this.#validateChallenges( { challenges } )
+    setChallenges( { challenges, pattern } ) {
+        this.#debug ? console.log( `PATTERN FINDER` ) : '' 
 
-        if( messages.length !== 0 ) {
-            messages
-                .forEach( ( msg, index, all ) => {
-                    if( index === 0 ) { 
-                        console.log( `Following Error${all.length > 0 ? 's' : ''} occured:` ) 
-                    }
-                    console.log( `- ${msg}` )
-                } )
-            throw new Error( `` )
+        let defaultSearch = false
+        if( challenges === undefined ) {
+            defaultSearch = true
+            challenges = defaultChallenges['default']
+            challenges[ 0 ]['logic'][ 0 ]['value'] = pattern
         }
+
+        const [ messages, comments ] = this.#validateChallenges( { challenges, pattern, defaultSearch } )
+        this.#printValidation( { messages, comments } )
 
         this.#challenges = challenges
-
         this.#init()
+
+        return this
     }
 
+/*
+    setSimplePattern( { pattern=null } ) {
+        this.#debug ? console.log( ' - Activate Default Challenges' ) : ''
+        if( typeof( pattern ) !== 'string' ) {
+            throw new Error( `  Variable pattern "${pattern}" is not type string` )
+        }
 
-    #validateChallenges( { challenges } ) {
-        let messages = []
-        messages = challenges
-            .map( ( challenge, index ) => {
-                return this.#validateChallenge( { challenge, index } )
-            } )
-            .flat( 1 )
+        const defaultChallenges = JSON.parse( 
+            JSON.stringify( this.#config['challenges']['default'] ) 
+        )
 
-        return messages
+        defaultChallenges[ 0 ]['logic'][ 0 ]['value'] = pattern
+       // this.#patternFinder.setChallenges( { 'challenges': defaultChallenges } )
+
+        return this
     }
-
-
-    #validateChallenge( { challenge, index } ) {
-        let messages = []
-
-        if( typeof challenge !== 'object' || challenge === null ) {
-            messages.push( `[${index}] challenge is not type object` )
-        }
-    
-        if( typeof challenge['name'] !== 'string' || challenge['name'] === '' ) {
-            messages.push( `[${index}] key "name" is not type "string" `)
-        }
-    
-        if( !Array.isArray( challenge['logic'] ) ) {
-            messages.push( `[${index}] key "logic" is not type "array"` )
-        } else {
-            challenge['logic']
-                .forEach( ( logicItem, rindex ) => {
-                    let msgs = this.#validateLogic( { logicItem, index, rindex } )
-                    messages = [ ...messages, ...msgs ]
-                } )
-        }
-
-        return messages
-    }
-
-
-    #validateLogic( { logicItem, index, rindex } ) {
-        let messages = []
-
-        let id = `[${index}] logic [${rindex}]`
-
-        if (
-            typeof logicItem !== 'object' ||
-            logicItem === null ||
-            !( 'value' in logicItem ) ||
-            !( 'method' in logicItem ) ||
-            // !( 'option' in logicItem ) ||
-            !( 'expect' in logicItem )
-        ) {
-            messages.push( `${id} keys missing "value", "method", "expect".` )
-        }
-    
-        if (typeof logicItem['value'] !== 'number' && typeof logicItem['value'] !== 'string') {
-            messages.push( `${id} key value is not type string or number` )
-        }
-    
-        if( logicItem['method'] !== 'regularExpression' && logicItem['method'] !== 'inSuccession' ) {
-            messages.push( `${id} value of key "method" is not "regularExpression" or "inSuccession"` )
-        }
-
-        if( Object.hasOwn( logicItem, 'option') ) {
-            if( logicItem['option'] !== 'startsWith' && logicItem['option'] !== 'endsWith' ) {
-                messages.push( `${id} value of key "option" is not "startsWith" or "endsWith"` )
-            }
-        }
-    
-        if (
-            typeof logicItem['expect'] !== 'object' ||
-            !( 'logic' in logicItem['expect'] ) ||
-            !( 'value' in logicItem['expect'] ) ||
-            ( typeof logicItem['expect']['value'] !== 'boolean' && typeof logicItem['expect']['value'] !== 'number' )
-        ) {
-            messages.push( `${id} key "expect" is not type object` )
-        }
-
-        return messages
-    }
-
+*/
 
     setPatterns( { str } ) {
+        const [ messages, comments ] = this.#validateString( { str } )
+        this.#printValidation( { messages, comments } )
+
         const cmds = this.#patterns['cmds']
             .reduce( ( acc, cmd, index ) => {
                 const key = index + ''
@@ -281,7 +82,18 @@ export class PatternFinder {
                         // results.push( acc[ key ]['success'] )
                         break
                     case 'regularExpression': 
-                        const reg = new RegExp( cmd['value'] )
+                    console.log( 'HERE', cmd['value'])
+
+                    
+                        let reg
+                        if( cmd['value'] instanceof RegExp ) {
+                            console.log( '- A')
+                            reg = cmd['value']
+                        } else {
+                            console.log( '- B')
+                            reg = new RegExp( cmd['value'] )
+                        }
+                    
 
                         const test = str.match( reg )
                         acc[ key ] = {
@@ -290,6 +102,12 @@ export class PatternFinder {
                         }
 
                         acc[ key ]['success'] = acc[ key ]['value'] === cmd['expect']['value']
+
+                        console.log( '>>>', str )
+                        console.log( '>>>', acc[ key ] )
+                        console.log( '>>>', cmd )
+                        console.log( '>>>', acc[ key ]['success'] )
+                        console.log( '----' )
                         // results.push( acc[ key ]['success'] )
                         break
                     default:
@@ -324,9 +142,135 @@ export class PatternFinder {
             'success': test
         }
 
-        // process.exit( 1 )
-
         return struct
+    }
+
+
+    #validateString( { str } ) {
+        let messages = []
+        let comments = []
+
+        if( typeof str !== 'string' ) {
+            messages.push( `Key "str" is not type "string"` )
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    #validateChallenges( { challenges, pattern, defaultSearch } ) {
+        let comments = []
+        let messages = []
+
+        if( defaultSearch ) {
+            comments.push( `Activate default search` ) 
+
+            if( typeof pattern === 'string' ) {
+                comments.push( `  Set key "pattern" to string "${pattern}"` )
+            } else if( pattern instanceof RegExp ) {
+                comments.push( `  Set key "pattern" as regular expression ${pattern}` )
+            } else if( pattern === undefined ) {
+                messages.push( `Key "pattern" is not set, please use "string" or /regular_expression/` )
+            } else {
+                messages.push( `Key "pattern" has wrong type (${typeof pattern})` )
+            }
+        } else {
+            comments.push( `Activate custom search.` )
+        }
+
+        if( challenges === undefined ) {
+            if( pattern === undefined ) {
+                messages.push( `Key "challenges" is required or use key "pattern" to use default.` )
+            }
+        } else {
+            if( !Array.isArray( challenges ) ) {
+                messages.push( `Key "challenges" is not type "array".`)
+            } else {
+                if( challenges.length === 0 ) {
+                    messages.push( `Key "challenges" has length "0".` )
+                } else {
+                    challenges
+                        .map( ( challenge, index ) => {
+                            return this.#validateChallenge( { challenge, index } )
+                        } )
+                        .flat( 1 )
+                        .forEach( msg => messages.push( msg ) )
+                }
+            }
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    #validateChallenge( { challenge, index } ) {
+        let messages = []
+
+        if( typeof challenge !== 'object' || challenge === null ) {
+            messages.push( `[${index}] challenge is not type object` )
+        }
+    
+        if( typeof challenge['name'] !== 'string' || challenge['name'] === '' ) {
+            messages.push( `[${index}] key "name" is not type "string" `)
+        }
+    
+        if( !Array.isArray( challenge['logic'] ) ) {
+            messages.push( `[${index}] key "logic" is not type "array"` )
+        } else {
+            challenge['logic']
+                .forEach( ( logicItem, rindex ) => {
+                    let msgs = this.#validateLogic( { logicItem, index, rindex } )
+                    messages = [ ...messages, ...msgs ]
+                } )
+        }
+
+        return messages
+    }
+
+
+    #validateLogic( { logicItem, index, rindex } ) {
+        let messages = []
+
+        let id = `[${index}]['logic'][${rindex}]`
+
+        if (
+            typeof logicItem !== 'object' ||
+            logicItem === null ||
+            !( 'value' in logicItem ) ||
+            !( 'method' in logicItem ) ||
+            // !( 'option' in logicItem ) ||
+            !( 'expect' in logicItem )
+        ) {
+            messages.push( `${id} keys missing "value", "method", "expect".` )
+        }
+
+        if( typeof logicItem['value'] !== 'number' && 
+            typeof logicItem['value'] !== 'string' &&
+            !( logicItem['value'] instanceof RegExp )
+        ) {
+            messages.push( `${id} key value is not type string, number or regular expression` )
+        }
+    
+        if( logicItem['method'] !== 'regularExpression' && logicItem['method'] !== 'inSuccession' ) {
+            messages.push( `${id} value of key "method" is not "regularExpression" or "inSuccession"` )
+        }
+
+        if( Object.hasOwn( logicItem, 'option') ) {
+            if( logicItem['option'] !== 'startsWith' && logicItem['option'] !== 'endsWith' ) {
+                messages.push( `${id} value of key "option" is not "startsWith" or "endsWith"` )
+            }
+        }
+    
+        if (
+            typeof logicItem['expect'] !== 'object' ||
+            !( 'logic' in logicItem['expect'] ) ||
+            !( 'value' in logicItem['expect'] ) ||
+            ( typeof logicItem['expect']['value'] !== 'boolean' && typeof logicItem['expect']['value'] !== 'number' )
+        ) {
+            messages.push( `${id} key "expect" is not type object` )
+        }
+
+        return messages
     }
 
 
@@ -409,8 +353,15 @@ export class PatternFinder {
                         return abb
                     }, {} )
             } )
-            .map( a => JSON.stringify( a ) )
+            .map( a => {
+                const struct = JSON.stringify( a, regexToString )
+                console.log( '>>', struct )
+                // console.log( '>>>', struct )
+                // struct['value'] = a['value']
+                return struct
+            } )
             .filter( ( v, i, a ) => a.indexOf( v ) === i )
+
 
         this.#challenges = this.#challenges
             // .filter( a => a['active'] )
@@ -441,7 +392,7 @@ export class PatternFinder {
             }, [] )
 
         this.#patterns['cmds'] = patterns
-            .map( a => JSON.parse( a ) )
+            .map( a => JSON.parse( a, stringToRegex ) )
 
 
 /*
@@ -469,6 +420,24 @@ export class PatternFinder {
         console.log( 'cmds', cmds )
         process.exit( 1 )
     */
+        return true
+    }
+
+
+    #printValidation( { messages, comments } ) {
+        this.#debug ? comments.forEach( msg => console.log( `  ${msg}` ) ) : ''
+
+        messages
+            .forEach( ( msg, index, all ) => {
+                if( index === 0 ) { 
+                    console.log()
+                    console.log( `Following Error${all.length > 1 ? 's' : ''} occured:` )
+                }
+                console.log( `- ${msg}` )
+            } )
+
+        messages.length !== 0 ? process.exit( 1 ) : ''
+
         return true
     }
 }

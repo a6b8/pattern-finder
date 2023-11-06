@@ -1,0 +1,6 @@
+{
+  "devDependencies": {
+    "axios": "^1.6.0",
+    "bitcoinjs-lib": "^6.1.5"
+  }
+}
