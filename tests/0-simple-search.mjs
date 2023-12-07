@@ -11,10 +11,5 @@ const result = patternFinder
         'flattenResult': false
     } )
 
-if( result ) {
-    console.log( 'Success!' )
-    process.exit( 1 )
-} else {
-    console.log( 'Failed' )
-    process.exit( 0 )
-}
+console.log( `Available PresetsKeys: ${presetKeys.join( ', ' )}` )
+console.log( JSON.stringify( result, null, 4 ) )

@@ -1,443 +1,349 @@
-import { defaultChallenges } from './data/challenges.mjs'
-import { regexToString, stringToRegex } from './helpers/mixed.mjs'
+import { config } from './data/config.mjs'
+import { presets } from './data/presets.mjs'
+import { printMessages, keyPathToValue } from './helpers/mixed.mjs'
 
 
 export class PatternFinder {
     #config
-    #challenges
-    #patterns
+    #presets
     #debug
-    
+
 
     constructor( debug=false ) {
         this.#debug = debug
-        this.#config = {}
-    }
+        this.#config = config
 
+        this.#presets = {}
+        const [ messages, comments ] = Object
+            .entries( presets )
+            .reduce( ( acc, a, index ) => {
+                const [ presetKey, challenge ] = a
+                const [ m, c ] = this.#validateAddChallenge( { presetKey, challenge } )
 
-    #init() {
-        this.#patterns = {
-            'challenges': [],
-            'patterns': []
-        }
-
-        this.#addPatternsTemplate()
-
+                acc[ 0 ].push( ...m )
+                acc[ 1 ].push( ...c )
+                return acc 
+            }, [ [], [] ] )
+        printMessages( { messages, comments } )
+        this.#presets = presets
         return true
     }
 
 
-    setChallenges( { challenges, pattern } ) {
-        this.#debug ? console.log( `PATTERN FINDER` ) : '' 
-
-        let defaultSearch = false
-        if( challenges === undefined ) {
-            defaultSearch = true
-            challenges = defaultChallenges['default']
-            challenges[ 0 ]['logic'][ 0 ]['value'] = pattern
-        }
-
-        const [ messages, comments ] = this.#validateChallenges( { challenges, pattern, defaultSearch } )
-        this.#printValidation( { messages, comments } )
-
-        this.#challenges = challenges
-        this.#init()
-
+    setPreset( { presetKey, challenge } ) {
+        const [ messages, comments ] = this.#validateAddChallenge( { presetKey, challenge } )
+        printMessages( { messages, comments } )
+        this.#presets[ presetKey ] = challenge
         return this
     }
 
-/*
-    setSimplePattern( { pattern=null } ) {
-        this.#debug ? console.log( ' - Activate Default Challenges' ) : ''
-        if( typeof( pattern ) !== 'string' ) {
-            throw new Error( `  Variable pattern "${pattern}" is not type string` )
-        }
-
-        const defaultChallenges = JSON.parse( 
-            JSON.stringify( this.#config['challenges']['default'] ) 
-        )
-
-        defaultChallenges[ 0 ]['logic'][ 0 ]['value'] = pattern
-       // this.#patternFinder.setChallenges( { 'challenges': defaultChallenges } )
-
-        return this
+    getPresetKeys() {
+        return Object.keys( this.#presets )
     }
-*/
 
-    setPatterns( { str } ) {
-        const [ messages, comments ] = this.#validateString( { str } )
-        this.#printValidation( { messages, comments } )
 
-        const cmds = this.#patterns['cmds']
-            .reduce( ( acc, cmd, index ) => {
-                const key = index + ''
-                switch( cmd['method'] ) {
-                    case 'inSuccession':
-                        acc[ key ] = this.patternsInSuccession( { 
-                            'str': str,
-                            'option': cmd['option'], 
-                            'value': cmd['value'],
-                            'expect': cmd['expect']
-                        } )
-                        // results.push( acc[ key ]['success'] )
+    getResult( { str, presetKey, flattenResult=true } ) {
+        const [ messages, comments ] = this.#validateTest( { str, presetKey } )
+        printMessages( { messages, comments } )
+
+        const preset = this.#presets[ presetKey ]
+        const tests = this.#findPatterns( { str, preset } )
+
+        const result = flattenResult ? this.#flattenResult( { tests } ) : tests
+        return result
+    }
+
+
+    #flattenResult( { tests } ) {
+        const flat = Object
+            .entries( tests )
+            .reduce( ( acc, a, index ) => {
+                const [ operator, values ] = a
+                if( index === 0 ) {
+                    acc[ operator ] = []
+                }
+
+                switch( operator ) {
+                    case 'and':
+                        acc[ operator ] = values
+                            .every( a => a['success'] )
                         break
-                    case 'regularExpression': 
-                    console.log( 'HERE', cmd['value'])
-
-                    
-                        let reg
-                        if( cmd['value'] instanceof RegExp ) {
-                            console.log( '- A')
-                            reg = cmd['value']
-                        } else {
-                            console.log( '- B')
-                            reg = new RegExp( cmd['value'] )
-                        }
-                    
-
-                        const test = str.match( reg )
-                        acc[ key ] = {
-                            'value': ( test !== null ),
-                            'success': null
-                        }
-
-                        acc[ key ]['success'] = acc[ key ]['value'] === cmd['expect']['value']
-
-                        console.log( '>>>', str )
-                        console.log( '>>>', acc[ key ] )
-                        console.log( '>>>', cmd )
-                        console.log( '>>>', acc[ key ]['success'] )
-                        console.log( '----' )
-                        // results.push( acc[ key ]['success'] )
+                    case 'or':
+                        acc[ operator ] = values
+                            .some( a => a['success'] )
                         break
                     default:
-                        this.printMsg( { 
-                            'type': 'error', 
-                            'str': `Key "${cmd['method']}" not found` 
-                        } )
-                        break
+                        console.log( 'unknow operator' )
+                        process.exit( 1 )
                 }
-
                 return acc
             }, {} )
 
-        const struct = this.#challenges
+        const result = Object
+            .entries( flat ) 
+            .every( a => a[ 1 ] )
+
+        return result
+    }
+
+
+    #findPatterns( { str, preset } ) {
+        let result = Object
+            .entries( preset['logic'] )
             .reduce( ( acc, a, index ) => {
-                acc[ a['name'] ] = {
-                    'success': false
-                }
-
-                acc[ a['name'] ]['success'] = a['patternIds']
-                    .every( id => cmds[ `${id}` ]['success'] )
-
+                const [ key, patterns ] = a
+                acc[ key ] = patterns
+                    .map( pattern => {
+                        let result
+                        switch( pattern['method'] ) {
+                            case 'regularExpression':
+                                result = this.#patternsRegularExpression( { str, pattern } ) 
+                                break
+                            case 'inSuccession': 
+                                result = this.#patternsInSuccession( { str, pattern } ) 
+                                break
+                            default:
+                                console.log( 'Unknwon method.' )
+                                process.exit( 1 )
+                                break
+                        }
+                        return result
+                    } )
                 return acc
             }, {} )
 
-        const test = Object
-            .entries( struct )
-            .map( a => a[ 1 ]['success'] )
-            .some( a => a )
-
-        struct['found'] = { 
-            'success': test
-        }
-
-        return struct
+        return result
     }
 
 
-    #validateString( { str } ) {
-        let messages = []
-        let comments = []
-
-        if( typeof str !== 'string' ) {
-            messages.push( `Key "str" is not type "string"` )
+    #patternsRegularExpression( { str, pattern } ) {
+        const result = {
+            'success': null,
+            'value': null
         }
 
-        return [ messages, comments ]
+        const test = pattern['value'].test( str )
+        result['success'] = test === pattern['expect']['value']
+        return result
     }
 
 
-    #validateChallenges( { challenges, pattern, defaultSearch } ) {
-        let comments = []
-        let messages = []
-
-        if( defaultSearch ) {
-            comments.push( `Activate default search` ) 
-
-            if( typeof pattern === 'string' ) {
-                comments.push( `  Set key "pattern" to string "${pattern}"` )
-            } else if( pattern instanceof RegExp ) {
-                comments.push( `  Set key "pattern" as regular expression ${pattern}` )
-            } else if( pattern === undefined ) {
-                messages.push( `Key "pattern" is not set, please use "string" or /regular_expression/` )
-            } else {
-                messages.push( `Key "pattern" has wrong type (${typeof pattern})` )
-            }
-        } else {
-            comments.push( `Activate custom search.` )
-        }
-
-        if( challenges === undefined ) {
-            if( pattern === undefined ) {
-                messages.push( `Key "challenges" is required or use key "pattern" to use default.` )
-            }
-        } else {
-            if( !Array.isArray( challenges ) ) {
-                messages.push( `Key "challenges" is not type "array".`)
-            } else {
-                if( challenges.length === 0 ) {
-                    messages.push( `Key "challenges" has length "0".` )
-                } else {
-                    challenges
-                        .map( ( challenge, index ) => {
-                            return this.#validateChallenge( { challenge, index } )
-                        } )
-                        .flat( 1 )
-                        .forEach( msg => messages.push( msg ) )
-                }
-            }
-        }
-
-        return [ messages, comments ]
-    }
-
-
-    #validateChallenge( { challenge, index } ) {
-        let messages = []
-
-        if( typeof challenge !== 'object' || challenge === null ) {
-            messages.push( `[${index}] challenge is not type object` )
-        }
-    
-        if( typeof challenge['name'] !== 'string' || challenge['name'] === '' ) {
-            messages.push( `[${index}] key "name" is not type "string" `)
-        }
-    
-        if( !Array.isArray( challenge['logic'] ) ) {
-            messages.push( `[${index}] key "logic" is not type "array"` )
-        } else {
-            challenge['logic']
-                .forEach( ( logicItem, rindex ) => {
-                    let msgs = this.#validateLogic( { logicItem, index, rindex } )
-                    messages = [ ...messages, ...msgs ]
-                } )
-        }
-
-        return messages
-    }
-
-
-    #validateLogic( { logicItem, index, rindex } ) {
-        let messages = []
-
-        let id = `[${index}]['logic'][${rindex}]`
-
-        if (
-            typeof logicItem !== 'object' ||
-            logicItem === null ||
-            !( 'value' in logicItem ) ||
-            !( 'method' in logicItem ) ||
-            // !( 'option' in logicItem ) ||
-            !( 'expect' in logicItem )
-        ) {
-            messages.push( `${id} keys missing "value", "method", "expect".` )
-        }
-
-        if( typeof logicItem['value'] !== 'number' && 
-            typeof logicItem['value'] !== 'string' &&
-            !( logicItem['value'] instanceof RegExp )
-        ) {
-            messages.push( `${id} key value is not type string, number or regular expression` )
-        }
-    
-        if( logicItem['method'] !== 'regularExpression' && logicItem['method'] !== 'inSuccession' ) {
-            messages.push( `${id} value of key "method" is not "regularExpression" or "inSuccession"` )
-        }
-
-        if( Object.hasOwn( logicItem, 'option') ) {
-            if( logicItem['option'] !== 'startsWith' && logicItem['option'] !== 'endsWith' ) {
-                messages.push( `${id} value of key "option" is not "startsWith" or "endsWith"` )
-            }
-        }
-    
-        if (
-            typeof logicItem['expect'] !== 'object' ||
-            !( 'logic' in logicItem['expect'] ) ||
-            !( 'value' in logicItem['expect'] ) ||
-            ( typeof logicItem['expect']['value'] !== 'boolean' && typeof logicItem['expect']['value'] !== 'number' )
-        ) {
-            messages.push( `${id} key "expect" is not type object` )
-        }
-
-        return messages
-    }
-
-
-    #patternsInSuccession( { str, option, value, expect } ) {
-        str = str.substring( 2, str.length )
-        let zeros = 0
+    #patternsInSuccession( { str, pattern } ) {
+        let count = 0
         let loop = true
+        let max = 0
+
+        const result = {
+            'success': null,
+            'value': null
+        }
+
         while( loop ) {
             let search
-
-            switch( option ) {
+            switch( pattern['option'] ) {
                 case 'startsWith':
                     search = str.substring( 0, 1 )
                     str = str.substring( 1, str.length )
+                    search === pattern['value'] ? count++ : loop = false
+                    result['value'] = count
                     break
                 case 'endsWith':
                     search = str.substring( str.length - 1, str.length )
                     str = str.substring( 0, str.length - 1 )
+                    search === pattern['value'] ? count++ : loop = false
+                    result['value'] = count
                     break
                 case 'inBetween':
+                    search = str.substring( 0, 1 )
+                    str = str.substring( 1, str.length )
+                    search === pattern['value'] ? count++ : count = 0
+                    max = count > max ? count : max
+                    result['value'] = max
                     break
             }
 
-            if( search !== '' ) {
-                ( search === value ) ? zeros++ : loop = false
-            } else {
-                loop = false
-            }
+            search === '' ? loop = false : ''
         }
 
-        const result = {
-            'value': zeros,
-            'success': null
-        }
-
-        switch( expect['logic'] ) {
+        switch( pattern['expect']['logic'] ) {
             case '=':
-                result['success'] = ( zeros === expect['value'] ) ? true : false
+                result['success'] = ( result['value'] === pattern['expect']['value'] ) ? true : false
                 break
             case '>':
-                result['success'] = ( zeros > expect['value'] ) ? true : false
+                result['success'] = ( result['value'] > pattern['expect']['value'] ) ? true : false
                 break
             case '>=':
-                result['success'] = ( zeros >= expect['value'] ) ? true : false
+                result['success'] = ( result['value'] >= pattern['expect']['value'] ) ? true : false
                 break
             case '<':
-                result['success'] = ( zeros < expect['value'] ) ? true : false
+                result['success'] = ( result['value'] < pattern['expect']['value'] ) ? true : false
                 break
             case '<=':
-                result['success'] = ( zeros <= expect['value'] ) ? true : false
+                result['success'] = ( result['value'] <= pattern['expect']['value'] ) ? true : false
                 break
             default:
-                this.printMsg( { 
-                    'type': 'error', 
-                    'str': `Logic "${expect['logic']}" is not known.` 
-                } )
+                console.log( 'Unknown input.' )
+                process.exit( 1 )
                 break
         }
         
         return result
     }
+    
 
+    #validateTest( { str, presetKey } ) {
+        const messages = []
+        const comments = []
 
-    #addPatternsTemplate() {
-        const patterns = this.#challenges
-            // .filter( a => a['active'] )
-            .reduce( ( acc, a, index ) => {
-                a['logic']
-                    .forEach( pattern => {
-                        acc.push( pattern )
-                    } )
-                return acc
-            }, [] )
-            .map( a => {
-                return Object
-                    .keys( a )
-                    .sort()
-                    .reduce( ( abb, key ) => { 
-                        abb[ key ] = a[ key ] 
-                        return abb
-                    }, {} )
-            } )
-            .map( a => {
-                const struct = JSON.stringify( a, regexToString )
-                console.log( '>>', struct )
-                // console.log( '>>>', struct )
-                // struct['value'] = a['value']
-                return struct
-            } )
-            .filter( ( v, i, a ) => a.indexOf( v ) === i )
+        if( typeof str !== 'string' ) {
+            messages.push( `Key 'str' is not type of 'string'.` )
+        }
 
+        if( typeof presetKey !== 'string' ) {
+            messages.push( `Key 'presetKey' is not type of 'string'. `)
+        } else if( !Object.keys( this.#presets ).includes( presetKey ) ) {
+            messages.push( `Key 'presetKey' with the value '${presetKey}' is not known. Choose from ${Object.keys( this.#presets ).map( a => `'${a}'` ).join( ', ' )} instead.` )
+        }
 
-        this.#challenges = this.#challenges
-            // .filter( a => a['active'] )
-            .reduce( ( acc, challenge, index ) => {
-                const struct = {
-                    'name': challenge['name'],
-                    'patternIds': []
-                }
-
-                challenge['logic']
-                    .forEach( a => {
-                        let search = Object
-                            .keys( a )
-                            .sort()
-                            .reduce( ( abb, key ) => { 
-                                abb[ key ] = a[ key ] 
-                                return abb
-                            }, {} )
-                        search = JSON.stringify( search )
-                        const id = patterns
-                            .findIndex( a => a === search )
-
-                        struct['patternIds'].push( id )
-                    } )
-
-                acc.push( struct )
-                return acc
-            }, [] )
-
-        this.#patterns['cmds'] = patterns
-            .map( a => JSON.parse( a, stringToRegex ) )
-
-
-/*
-
-        const cmds = [ 'inSuccession', 'regexs' ]
-            .reduce( ( acc, method, index ) => {
-                this.config['patterns'][ method ]
-                    .filter( a => a['active'] )
-                    .forEach( a => {
-                        const cmd = { ...a }
-                        cmd['method'] = method
-                        const names = []
-                        names.push( method )
-                        a.hasOwnProperty( 'option' ) ? names.push( a['option'] ) : ''
-                        names.push( a['keyName'] )
-                        cmd['outputKey'] = names
-                            .join( this.config['patterns']['splitter'] )
-
-                        acc.push( cmd )
-                    } )
-
-                return acc
-            }, [] )
-
-        console.log( 'cmds', cmds )
-        process.exit( 1 )
-    */
-        return true
+        return [ messages, comments ]
     }
 
 
-    #printValidation( { messages, comments } ) {
-        this.#debug ? comments.forEach( msg => console.log( `  ${msg}` ) ) : ''
+    #validateAddChallenge( { presetKey, challenge } ) {
+        let messages = []
+        let comments = []
 
-        messages
-            .forEach( ( msg, index, all ) => {
-                if( index === 0 ) { 
-                    console.log()
-                    console.log( `Following Error${all.length > 1 ? 's' : ''} occured:` )
+        if( typeof presetKey !== 'string' ) {
+            messages.push( `Key 'presetKey' is not type of string` )
+        } else if( !/^[a-zA-Z]+$/.test( presetKey ) ) {
+            messages.push( `Key 'presetKey' accepts only characters from a-z and A-Z.` )
+        } else if( Object.keys( this.#presets ).includes( presetKey ) ) {
+            comments.push( `Key '${presetKey}' is already taken, will overwrite data.` )
+        }
+        if( typeof challenge !== 'object' ) {
+            messages.push( `Challenge is not type of 'object'.` )
+        } else {
+            const valid = [ 
+                [ 'description', 'string' ],
+                [ 'logic', 'object' ]
+            ]
+
+            Object
+                .keys( challenge )
+                .forEach( key => {
+                    const find = valid.find( a => a[ 0 ] === key )
+                    if( find === undefined ) {
+                        messages.push( `Key '${key}' in Challenge is not allowed.` )
+                    } else {
+                        if( typeof challenge[ find[ 0 ] ] !== find[ 1 ] ) {
+                            messages.push( `Key '${find[ 0 ]}' in Challenge is not type of '${find[ 1 ]}'.` )
+                        }
+                    }
+                } )
+        }
+
+        if( messages.length !== 0 ) {
+            return [ messages, comments ]
+        }
+
+        const ops = [ 'and', 'or' ]
+        if( !ops.some( op => Object.hasOwn( challenge['logic'], op ) ) ) {
+            messages.push( `Key 'logic' in Challenge expects only ${ops.map( a => `'${a}'`).join( ', ' )} as key.` )
+        } else if( Object.keys( challenge['logic'] ).length !== 1 ) {
+            messages.push( `Key 'logic' in Challenge has more then one key. Choose from ${ops.map( a => `'${a}'`).join( ', ' )}` )
+        } else if( !Array.isArray( challenge['logic'][ Object.keys( challenge['logic'] )[ 0 ] ] ) ) {
+            messages.push( `Key '${Object.keys( challenge['logic'])}' in challenge['logic'] is not type of 'array'.`)
+        } else {
+            Object
+                .entries( challenge['logic'] )
+                .forEach( a => {
+                    const [ key, items ] = a
+                        items
+                            .forEach( ( item, index ) => {
+                                let id = ''
+                                id += "['logic']"
+                                id += `['${key}']`
+                                id += `[ ${index} ]`
+
+                                const [ m, c ] = this.#validateLogicItem( { item, id } )
+                                messages = [ ...messages, ...m ]
+                                comments = [ ...comments, ...c ] 
+                            } )
+                } )
+        }
+
+        return [ messages, comments ]
+    }
+
+
+    #validateLogicItem( { item, id } ) {
+        const messages = []
+        const comments = []
+
+        const validations = this.#config['validations']
+        if( !Object.hasOwn( item, 'method' ) ) {
+            messages.push( `${id} Key 'method' is missing.` )
+            return [ messages, comments ]
+        } else if( !Object.keys( validations ).includes( item['method'] ) ) {
+            messages.push( `${id} Key 'method' with the value '${item['method']}' is not allowed. Choose from ${Object.keys( validations ).map( a => `'${a}'`).join(', ')} instead.` )
+            return [ messages, comments ]
+        }
+
+        const tmp = [
+            [ 'value', 'type' ],
+            [ 'option', 'includes' ],
+            [ 'expect__logic', 'includes' ],
+            [ 'expect__value', 'type']
+        ]
+            .forEach( a => {
+                const [ keyPath, search ] = a
+                const valid = keyPathToValue( { 'data': validations[ item['method'] ], keyPath } )
+
+                const input = keyPathToValue( { 'data': item, keyPath } )
+                const id2 = keyPath.split( '__' ).map( a => `['${a}']` ).join( '' )
+
+                if( input === undefined ) {
+                    messages.push( `${id} Key '${id2}' is not found.` )
+                } else {
+                    switch( search ) {
+                        case 'includes':
+                            if( !valid.includes( input ) ) {
+                                messages.push( `${id} Key '${id2}' with the value '${input}' is not allowed. Choose from ${valid.map( a => `'${a}'`).join( ', ' )} instead.` )
+                            }
+                            break
+                        case 'type':
+                            switch( valid ) {
+                                case 'Boolean':
+                                    if( typeof input !== 'boolean' ) {
+                                        messages.push( `${id} Key '${id2}' with the value '${input}' is not type of 'Boolean'.` )
+                                    }
+                                    break
+                                case 'Number':
+                                    if( !Number.isFinite( input ) ) {
+                                        messages.push( `${id} Key '${id2}' with the value '${input}' is not type of 'Number' or 'Float'.` )
+                                    } 
+                                    break
+                                case 'RegularExpression': 
+                                    if( !( input instanceof RegExp ) ) {
+                                        messages.push( `${id} Key '${id2}' with the value '${input}' is not type of 'Regular Expression'.` )
+                                    }
+                                    break
+                                case 'SingleChar':
+                                    if ( !( typeof input === 'string' && input.length === 1 ) ) {
+                                        messages.push( `${id} Key '${id2}' with the value '${input}' is not type of 'string' and 1 character long.` )
+                                    }
+                                    break
+                                default:
+                                    console.log( 'Unknown Error.' )
+                                    process.exit( 1 )
+                                    break
+                            }
+
+                            break
+                    }
                 }
-                console.log( `- ${msg}` )
             } )
 
-        messages.length !== 0 ? process.exit( 1 ) : ''
-
-        return true
+        return [ messages, comments ]
     }
 }
