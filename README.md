@@ -3,7 +3,7 @@
 
 # Pattern Finder
 
-This module helps to find patterns in strings. It can be used to find specific patterns in public keys that visually help locate the address more easily. 
+This tool helps you find patterns in text. It's handy for spotting particular sequences in public keys, making it easier to locate addresses. Plus, it adds a bit of fun to pattern hunting.
 
 ## Quickstart
 
