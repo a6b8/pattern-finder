@@ -13,8 +13,8 @@ const result = patternFinder
 
 if( result ) {
     console.log( 'Success!' )
-    process.exit( 1 )
+    process.exit( 0 )
 } else {
     console.log( 'Failed' )
-    process.exit( 0 )
+    process.exit( 1 )
 }
