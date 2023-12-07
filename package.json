@@ -1,0 +1,36 @@
+{
+  "name": "2-patternfinder",
+  "version": "1.0.0",
+  "description": "![CircleCI](https://img.shields.io/circleci/build/github/a6b8/patternFinder/main)",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "dependencies": {
+    "asynckit": "^0.4.0",
+    "axios": "^1.6.0",
+    "base-x": "^4.0.0",
+    "bech32": "^2.0.0",
+    "bip174": "^2.1.1",
+    "bitcoinjs-lib": "^6.1.5",
+    "bs58": "^5.0.0",
+    "bs58check": "^3.0.1",
+    "combined-stream": "^1.0.8",
+    "delayed-stream": "^1.0.0",
+    "follow-redirects": "^1.15.3",
+    "form-data": "^4.0.0",
+    "mime-db": "^1.52.0",
+    "mime-types": "^2.1.35",
+    "proxy-from-env": "^1.1.0",
+    "safe-buffer": "^5.2.1",
+    "typeforce": "^1.18.0",
+    "varuint-bitcoin": "^1.1.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}
