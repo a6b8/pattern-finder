@@ -5,6 +5,8 @@
 
 This tool helps you find patterns in text. It's handy for spotting particular sequences in public keys, making it easier to locate addresses. Plus, it adds a bit of fun to pattern hunting.
 
+For Inspiration: [12 Zeros](https://bscscan.com/address/0x0000000000004946c0e9f43f4dee607b0ef1fa1c)
+
 ## Quickstart
 
 ```shell
