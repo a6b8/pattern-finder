@@ -124,6 +124,8 @@ const result = patternFinder
 console.log( JSON.stringify( result, null, 4 ) )
 ```
 
+You can find all default presets here: [./src/data/presets.mjs](./src/data/presets.mjs)
+
 ## Challenges
 
 A preset consists of a `presetKey` name, an optional description, and the actual logic section.
@@ -167,6 +169,8 @@ const preset = {
     }
 }
 ```
+
+You can find all default presets here: [./src/data/presets.mjs](./src/data/presets.mjs)
 
 ## License
 
