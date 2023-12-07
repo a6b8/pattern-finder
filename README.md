@@ -1,7 +1,7 @@
 ![CircleCI](https://img.shields.io/circleci/build/github/a6b8/patternFinder/main)
 
 
-# CircleCI Pattern Finder
+# Pattern Finder
 
 This module helps to find patterns in strings. It can be used to find specific patterns in private keys that visually help locate the address more easily.
 
