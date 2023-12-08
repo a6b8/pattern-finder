@@ -139,8 +139,8 @@ The following basic operators are available: `and` and `or`. `and` expects all p
 
 | Search Type       | Description                                                 | Options          | Logic     |
 | ----------------- | ----------------------------------------------------------- | ----------------- | --------- |
-| regularExpression | Allows complex search patterns using regular expressions.  |                 | =         |
-| inSuccession      | Allows counting the same characters at the beginning, end, or anywhere in the text and comparing with a number. | startsWith, endsWith, inBetween | =, >, >=, <, <= |
+| regularExpression | Allows complex search patterns using regular expressions.  | `null`, `undefined`                | `=`         |
+| inSuccession      | Allows counting the same characters at the beginning, end, or anywhere in the text and comparing with a number. | `startsWith`, `endsWith`, `inBetween` | `=`, `>`, `>=`, `<`, `<=` |
 
 There are currently two different basic search types: `regularExpression` and `inSuccession`. `regularExpression` allows for high complexity, while `inSuccession` allows counting the same characters at the beginning (startsWith), end (endsWith), or anywhere in the text (inBetween). You can specify a number using the `expect.value` key and a comparison operator using `expect.logic`.
 
