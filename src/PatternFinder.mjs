@@ -9,7 +9,7 @@ export class PatternFinder {
     #debug
 
 
-    constructor( debug=false ) {
+    constructor() {
         this.#debug = debug
         this.#config = config
 
@@ -37,12 +37,13 @@ export class PatternFinder {
         return this
     }
 
+    
     getPresetKeys() {
         return Object.keys( this.#presets )
     }
 
 
-    getResult( { str, presetKey, flattenResult=true } ) {
+    getResult( { str, presetKey, flattenResult=false } ) {
         const [ messages, comments ] = this.#validateTest( { str, presetKey } )
         printMessages( { messages, comments } )
 
