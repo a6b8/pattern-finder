@@ -6,11 +6,9 @@ import { printMessages, keyPathToValue } from './helpers/mixed.mjs'
 export class PatternFinder {
     #config
     #presets
-    #debug
 
 
     constructor() {
-        this.#debug = debug
         this.#config = config
 
         this.#presets = {}
@@ -37,7 +35,7 @@ export class PatternFinder {
         return this
     }
 
-    
+
     getPresetKeys() {
         return Object.keys( this.#presets )
     }

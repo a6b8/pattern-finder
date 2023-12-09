@@ -25,6 +25,9 @@ const result = patternFinder
 console.log( JSON.stringify( result, null, 4 ) )
 ```
 
+Find more Informations here: [...data/presets.mjs#L53](https://github.com/a6b8/patternFinder/blob/bcf5c3223140ef66ebb4603a68975ce73acec0db/src/data/presets.mjs#L53)
+
+
 ## Table of Contents
 
 - Pattern Finder
